@@ -1,0 +1,53 @@
+mission:
+  overall_goal: >
+    [Tuliskan tujuan utama dari misi ini dalam 1-3 kalimat]
+
+agents:
+  - role: "[Nama Role Agen 1]"
+    goal: >
+      [Tujuan spesifik yang ingin dicapai oleh agen ini]
+    backstory: >
+      [Latar belakang keahlian dan kepribadian agen]
+    tools:
+      # Pilih dari tool yang tersedia:
+      # - notion_search, notion_read_page, notion_create_page, notion_update_page
+      # - x_search, x_post_tweet, x_post_thread, x_get_tweet
+      # - market_data_ticker, market_data_ohlcv, market_data_trend
+      # - discord_tool
+      - x_search
+    verbose: true
+    max_iter: 5
+
+  - role: "[Nama Role Agen 2]"
+    goal: >
+      [Tujuan spesifik agen 2]
+    backstory: >
+      [Keahlian agen 2]
+    tools: []
+    verbose: true
+    max_iter: 5
+
+tasks:
+  - description: >
+      [Instruksi detail tentang apa yang harus dikerjakan]
+    expected_output: >
+      [Bentuk output yang diharapkan dari task ini]
+    agent: "[Nama Role Agen 1]"
+
+  - description: >
+      [Instruksi task kedua yang memanfaatkan output task pertama]
+    expected_output: >
+      [Bentuk output yang diharapkan]
+    agent: "[Nama Role Agen 2]"
+    context:
+      - "[Nama Role Agen 1]"
+
+process: sequential  # atau "hierarchical"
+verbose: true
+memory: false
+cache: true
+llm:
+  model: "gh/gpt-4o-mini-2024-07-18"
+  base_url: "http://localhost:20128/v1"
+  temperature: 0.7
+  max_tokens: 4096

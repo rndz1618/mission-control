@@ -1,0 +1,114 @@
+mission:
+  overall_goal: >
+    Menciptakan strategi konten media berbasis data untuk meningkatkan 
+    jangkauan dan engagement audiens target pada platform sosial, dengan 
+    fokus pada analisis tren, produksi konten relevan, review editorial, 
+    dan laporan publikasi.
+
+agents:
+  - role: Media Analyst
+    goal: >
+      Identifikasi tren konten, topik hangat, dan perilaku audiens di media 
+      sosial terkait teknologi dan AI.
+    backstory: >
+      Ahli analisis media sosial yang memahami tren terkini, pola engagement, 
+      dan algoritma platform. Mampu mengubah data menjadi wawasan yang dapat 
+      ditindaklanjuti.
+    tools:
+      - x_search
+      - market_data_ticker
+    verbose: true
+    max_iter: 5
+
+  - role: Content Writer
+    goal: >
+      Menulis 3 draft konten media sosial yang menarik dan actionable 
+      berdasarkan hasil analisis tren.
+    backstory: >
+      Penulis konten kreatif yang mahir membuat micro-copy persuasif dan 
+      relevan untuk audiens teknologi. Selalu menyertakan call-to-action yang kuat.
+    tools: []
+    verbose: true
+    max_iter: 5
+
+  - role: Content Editor
+    goal: >
+      Review dan evaluasi draft konten untuk memastikan kualitas, akurasi, 
+      dan keselarasan pesan sebelum disetujui untuk rilis.
+    backstory: >
+      Editor konten berpengalaman yang teliti terhadap nada, tata bahasa, 
+      dan nilai pesan. Memberikan penilaian objektif (DISETUJUI / REVISI).
+    tools:
+      - discord_tool
+    verbose: true
+    max_iter: 5
+
+  - role: Release Manager
+    goal: >
+      Menyusun laporan akhir dan rencana publikasi berdasarkan hasil review 
+      editorial.
+    backstory: >
+      Koordinator rilis konten yang memastikan setiap konten terjadwal 
+      dengan baik dan hasilnya terdokumentasi secara rapi.
+    tools:
+      - discord_tool
+    verbose: true
+    max_iter: 5
+
+tasks:
+  - description: >
+      Lakukan analisis tren konten media sosial seputar AI dan teknologi terkini. 
+      Gunakan x_search untuk mencari topik yang sedang dibicarakan. 
+      Sajikan 3 temuan tren utama beserta rekomendasi sudut pandang konten.
+    expected_output: >
+      Ringkasan 3 tren utama dalam format:
+      1. Nama Tren: deskripsi singkat dan relevansi
+      2. Sudut Pandang Konten yang Disarankan: angle yang menarik untuk audiens
+    agent: Media Analyst
+
+  - description: >
+      Berdasarkan 3 tren dari Media Analyst, buat 3 draft konten media sosial 
+      (maksimal 280 karakter per konten). Setiap draft harus memiliki hook yang kuat, 
+      pesan utama, hashtag relevan, dan call-to-action.
+    expected_output: >
+      3 draft konten siap publish dengan format:
+      [Draft 1] - [Topik] - [Teks Konten] - [Hashtag]
+      [Draft 2] - [Topik] - [Teks Konten] - [Hashtag]
+      [Draft 3] - [Topik] - [Teks Konten] - [Hashtag]
+    agent: Content Writer
+    context:
+      - Media Analyst
+
+  - description: >
+      Evaluasi ke-3 draft konten dari Content Writer. Periksa kejelasan pesan, 
+      panjang karakter, dan dampak audiens. Berikan status keputusan untuk 
+      setiap draft: "DISETUJUI" beserta alasan singkat, atau "REVISI" beserta 
+      catatan perbaikan.
+    expected_output: >
+      Laporan editorial review untuk ke-3 draft dengan status jelas (DISETUJUI/REVISI) 
+      dan catatan perbaikan jika ada.
+    agent: Content Editor
+    context:
+      - Content Writer
+
+  - description: >
+      Buat laporan publikasi final yang merangkum: 
+      1. Status persetujuan semua konten dari Content Editor
+      2. Konten final yang siap rilis
+      3. Rekomendasi jadwal posting
+      Kirimkan ringkasan hasil melalui discord_tool jika ada webhook yang aktif.
+    expected_output: >
+      Laporan publikasi final lengkap dan terstruktur, siap dipakai tim operasional.
+    agent: Release Manager
+    context:
+      - Content Editor
+
+process: sequential
+verbose: true
+memory: false
+cache: true
+llm:
+  model: "gh/gpt-4o-mini-2024-07-18"
+  base_url: "http://localhost:20128/v1"
+  temperature: 0.7
+  max_tokens: 4096

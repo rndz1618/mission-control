@@ -1,0 +1,13 @@
+# Base template for task configuration
+# This is a reference for what fields are expected in mission.yaml under tasks[]
+
+description: >-
+  Detailed description of what the task entails.
+  Should be specific, actionable, and include any constraints or requirements.
+expected_output: >-
+  Clear definition of what the completed task should produce.
+  Should be measurable and verifiable.
+agent: "Agent Role"  # Must match the 'role' of an agent defined in agents[]
+context:  # Optional: list of agent roles that must complete their tasks before this one
+  - "Previous Agent Role"
+  # This creates a dependency chain in sequential process

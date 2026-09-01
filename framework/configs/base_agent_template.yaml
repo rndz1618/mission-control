@@ -1,0 +1,17 @@
+# Base template for agent configuration
+# This is a reference for what fields are expected in mission.yaml under agents[]
+
+role: "Agent Role"  # e.g., "Media Analyst", "Content Writer"
+goal: >-
+  The specific objective this agent should achieve.
+  Should be clear, measurable, and aligned with the mission goal.
+backstory: >-
+  Background information that informs the agent's expertise, personality,
+  and motivation. Helps the LLM role-play effectively.
+tools:  # List of tool names as defined in framework/tools/
+  - notion_tool
+  - x_tool
+  # Add others as needed: market_data_tool, discord_tool
+verbose: true  # Set to false for less output in production
+max_iter: 25   # Maximum iterations for the agent to try to complete a task
+max_rpm: null  # Maximum requests per minute; null for no limit
