@@ -2,9 +2,11 @@
 
 Each action is a separate tool for proper function-calling schema.
 """
-import json
+import logging
 import subprocess
 from crewai.tools import BaseTool
+
+logger = logging.getLogger(__name__)
 
 
 class NotionSearchTool(BaseTool):
@@ -17,17 +19,27 @@ class NotionSearchTool(BaseTool):
 
     def _run(self, query: str) -> str:
         if not query:
-            return "Error: query is required."
+            err = "Error: query is required."
+            logger.warning(err)
+            return err
         try:
             result = subprocess.run(
-                ["ntn", "search", query],
+                ["ntn", "pages", "list"],
                 capture_output=True, text=True, timeout=30
             )
-            return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
+            if result.returncode == 0:
+                return result.stdout
+            err = f"Error: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return "Error: ntn CLI not found."
+            err = "Error: ntn CLI not found."
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err
 
 
 class NotionReadPageTool(BaseTool):
@@ -40,17 +52,27 @@ class NotionReadPageTool(BaseTool):
 
     def _run(self, page_id: str) -> str:
         if not page_id:
-            return "Error: page_id is required."
+            err = "Error: page_id is required."
+            logger.warning(err)
+            return err
         try:
             result = subprocess.run(
                 ["ntn", "pages", "get", page_id],
                 capture_output=True, text=True, timeout=30
             )
-            return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
+            if result.returncode == 0:
+                return result.stdout
+            err = f"Error: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return "Error: ntn CLI not found."
+            err = "Error: ntn CLI not found."
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err
 
 
 class NotionCreatePageTool(BaseTool):
@@ -63,17 +85,27 @@ class NotionCreatePageTool(BaseTool):
 
     def _run(self, parent_id: str, title: str, content: str = "") -> str:
         if not parent_id or not title:
-            return "Error: parent_id and title are required."
+            err = "Error: parent_id and title are required."
+            logger.warning(err)
+            return err
         try:
             cmd = ["ntn", "pages", "create", "--parent", parent_id, "--title", title]
             if content:
                 cmd.extend(["--content", content])
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
+            if result.returncode == 0:
+                return result.stdout
+            err = f"Error: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return "Error: ntn CLI not found."
+            err = "Error: ntn CLI not found."
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err
 
 
 class NotionUpdatePageTool(BaseTool):
@@ -85,15 +117,23 @@ class NotionUpdatePageTool(BaseTool):
     )
 
     def _run(self, page_id: str, content: str) -> str:
-        if not page_id:
-            return "Error: page_id is required."
+        if not page_id or not content:
+            err = "Error: page_id and content are required."
+            logger.warning(err)
+            return err
         try:
-            cmd = ["ntn", "pages", "update", page_id]
-            if content:
-                cmd.extend(["--content", content])
+            cmd = ["ntn", "pages", "update", page_id, "--content", content]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
+            if result.returncode == 0:
+                return result.stdout
+            err = f"Error: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return "Error: ntn CLI not found."
+            err = "Error: ntn CLI not found."
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err

@@ -1,5 +1,4 @@
 """Discord Tool for CrewAI - sends messages via webhook"""
-import json
 import logging
 import os
 from typing import Optional

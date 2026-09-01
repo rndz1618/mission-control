@@ -3,9 +3,13 @@
 Each action is a separate tool so CrewAI's native function calling
 can generate proper JSON arguments.
 """
+import json
+import logging
 import re
 import subprocess
 from crewai.tools import BaseTool
+
+logger = logging.getLogger(__name__)
 
 
 class XSearchTool(BaseTool):
@@ -25,15 +29,23 @@ class XSearchTool(BaseTool):
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout
             elif result.stderr.strip():
-                return f"Search completed but returned error: {result.stderr}"
+                err = f"Search completed but returned error: {result.stderr}"
+                logger.warning(err)
+                return err
             else:
                 return "No results found for the query."
         except FileNotFoundError:
-            return "Error: xurl CLI not found. Please ensure xurl is installed."
+            err = "Error: xurl CLI not found. Please ensure xurl is installed."
+            logger.error(err)
+            return err
         except subprocess.TimeoutExpired:
-            return "Error: Search timed out after 30 seconds."
+            err = "Error: Search timed out after 30 seconds."
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err
 
 
 class XPostTweetTool(BaseTool):
@@ -46,41 +58,53 @@ class XPostTweetTool(BaseTool):
 
     def _run(self, text: str, reply_to: str = "") -> str:
         if not text:
-            return "Error: text is required to post a tweet."
+            err = "Error: text is required to post a tweet."
+            logger.warning(err)
+            return err
         try:
             cmd = ["xurl", "post", "--text", text]
             if reply_to:
                 cmd.extend(["--reply", reply_to])
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
+                logger.info("Tweet posted successfully.")
                 return result.stdout or "Tweet posted successfully."
-            return f"Error posting tweet: {result.stderr}"
+            err = f"Error posting tweet: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return "Error: xurl CLI not found."
+            err = "Error: xurl CLI not found."
+            logger.error(err)
+            return err
         except subprocess.TimeoutExpired:
-            return "Error: Post timed out."
+            err = "Error: Post timed out."
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err
 
 
 class XPostThreadTool(BaseTool):
     name: str = "x_post_thread"
     description: str = (
         "Post a thread of tweets to X/Twitter. "
-        "Provide: tweets (required, a list of tweet texts as comma-separated strings or a JSON array). "
+        "Provide: tweets (required, a list of tweet texts as pipe-separated '|' strings or a JSON array). "
         "Example: {\"tweets\": [\"First tweet\", \"Second tweet\", \"Third tweet\"]}"
     )
 
     def _run(self, tweets: str) -> str:
-        """tweets can be a JSON array string or comma-separated."""
-        import json
+        """tweets can be a JSON array string or pipe-separated string."""
         try:
             tweet_list = json.loads(tweets) if tweets.startswith("[") else [t.strip() for t in tweets.split("|")]
         except json.JSONDecodeError:
             tweet_list = [t.strip() for t in tweets.split("|")]
 
         if not tweet_list:
-            return "Error: at least one tweet is required."
+            err = "Error: at least one tweet is required."
+            logger.warning(err)
+            return err
 
         results = []
         previous_id = None
@@ -91,14 +115,19 @@ class XPostThreadTool(BaseTool):
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 if result.returncode != 0:
-                    return f"Error posting tweet: {result.stderr}"
+                    err = f"Error posting tweet in thread: {result.stderr}"
+                    logger.error(err)
+                    return err
                 results.append(result.stdout)
                 match = re.search(r'status/(\d+)', result.stdout)
                 if match:
                     previous_id = match.group(1)
             except Exception as e:
-                return f"Error: {str(e)}"
+                err = f"Error posting thread item: {str(e)}"
+                logger.exception(err)
+                return err
 
+        logger.info("Thread posted successfully.")
         return f"Thread posted ({len(tweet_list)} tweets):\n" + "\n".join(results)
 
 
@@ -112,14 +141,24 @@ class XGetTweetTool(BaseTool):
 
     def _run(self, tweet_id: str) -> str:
         if not tweet_id:
-            return "Error: tweet_id is required."
+            err = "Error: tweet_id is required."
+            logger.warning(err)
+            return err
         try:
             result = subprocess.run(
                 ["xurl", "get", tweet_id],
                 capture_output=True, text=True, timeout=30
             )
-            return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
+            if result.returncode == 0:
+                return result.stdout
+            err = f"Error: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return "Error: xurl CLI not found."
+            err = "Error: xurl CLI not found."
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err
