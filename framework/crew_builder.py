@@ -72,22 +72,53 @@ def get_tool(tool_name: str) -> BaseTool:
 
 
 def create_llm(mission_config: Dict[str, Any]) -> LLM:
-    """Create LLM instance from mission configuration."""
+    """
+    Create LLM instance from mission configuration.
+    Supports OpenAI-compatible gateways, Ollama, OpenRouter, Anthropic, Gemini, Groq, etc.
+    """
     llm_config = mission_config.get("llm", {})
 
-    base_url = llm_config.get("base_url", os.getenv("OPENAI_API_BASE", "http://localhost:20128/v1"))
+    raw_model = llm_config.get("model", "gh/gpt-4o-mini-2024-07-18")
+    provider = llm_config.get("provider", "openai").lower()
+    base_url = llm_config.get("base_url") or os.getenv("OPENAI_API_BASE")
     api_key = llm_config.get("api_key") or os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY is not set in environment or mission config.")
-    model = llm_config.get("model", "gh/gpt-4o-mini-2024-07-18")
 
-    return LLM(
-        model=f"openai/{model}",
-        base_url=base_url,
-        api_key=api_key,
-        temperature=llm_config.get("temperature", 0.7),
-        max_tokens=llm_config.get("max_tokens", 4096),
-    )
+    # Format model name with provider prefix if not already present
+    if "/" in raw_model and not any(raw_model.startswith(p + "/") for p in ["ollama", "openai", "anthropic", "gemini", "groq", "openrouter"]):
+        # Models with org prefix like "gh/gpt-4o-mini" under openai gateway
+        model_name = f"{provider}/{raw_model}" if provider else f"openai/{raw_model}"
+    elif "/" not in raw_model:
+        model_name = f"{provider}/{raw_model}" if provider else f"openai/{raw_model}"
+    else:
+        model_name = raw_model
+
+    # Set default localhost base_url for openai compatible gateways if not provided
+    if not base_url and (provider == "openai" or model_name.startswith("openai/")):
+        base_url = "http://localhost:20128/v1"
+
+    # Ollama defaults
+    if provider == "ollama" or model_name.startswith("ollama/"):
+        if not base_url:
+            base_url = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
+        if not api_key:
+            api_key = "ollama"  # dummy key for litellm
+
+    if not api_key and not (provider == "ollama" or model_name.startswith("ollama/")):
+        raise ValueError(
+            "API key not found. Please set OPENAI_API_KEY env var or provide 'api_key' in mission.yaml"
+        )
+
+    llm_kwargs: Dict[str, Any] = {
+        "model": model_name,
+        "temperature": llm_config.get("temperature", 0.7),
+        "max_tokens": llm_config.get("max_tokens", 4096),
+    }
+    if base_url:
+        llm_kwargs["base_url"] = base_url
+    if api_key:
+        llm_kwargs["api_key"] = api_key
+
+    return LLM(**llm_kwargs)
 
 
 def build_agents(agents_config: List[Dict[str, Any]], llm: LLM) -> List[Agent]:
