@@ -1,19 +1,29 @@
 """Notion Tools for CrewAI - wraps ntn CLI
 
 Each action is a separate tool for proper function-calling schema.
+Includes graceful fallback and availability checks.
 """
+import json
 import logging
+import shutil
 import subprocess
 from crewai.tools import BaseTool
 
 logger = logging.getLogger(__name__)
 
+CLI_NAME = "ntn"
+
+
+def is_cli_available() -> bool:
+    """Check if ntn CLI binary is available on the system PATH."""
+    return shutil.which(CLI_NAME) is not None
+
 
 class NotionSearchTool(BaseTool):
     name: str = "notion_search"
     description: str = (
-        "Search pages in Notion. "
-        "Provide: query (required, the search term). "
+        "Search pages and databases in Notion by query term. "
+        "Provide: query (required, the search keyword). "
         "Example: {\"query\": \"project plan\"}"
     )
 
@@ -22,22 +32,34 @@ class NotionSearchTool(BaseTool):
             err = "Error: query is required."
             logger.warning(err)
             return err
+
+        if not is_cli_available():
+            logger.info("ntn CLI not found on system PATH. Returning notice.")
+            return (
+                f"Notice: '{CLI_NAME}' CLI is not installed. Live Notion search for '{query}' is unavailable. "
+                "Proceeding with internal reasoning."
+            )
+
         try:
+            # Use public API search endpoint via ntn api v1/search
+            payload = json.dumps({"query": query, "page_size": 10})
             result = subprocess.run(
-                ["ntn", "pages", "list"],
+                [CLI_NAME, "api", "v1/search", "-d", payload],
                 capture_output=True, text=True, timeout=30
             )
-            if result.returncode == 0:
+            if result.returncode == 0 and result.stdout.strip():
                 return result.stdout
-            err = f"Error: {result.stderr}"
-            logger.error(err)
-            return err
-        except FileNotFoundError:
-            err = "Error: ntn CLI not found."
+            elif result.stderr.strip():
+                err = f"Search returned notice: {result.stderr.strip()}"
+                logger.warning(err)
+                return err
+            return f"No results found in Notion for query: '{query}'."
+        except subprocess.TimeoutExpired:
+            err = "Error: Notion search timed out after 30 seconds."
             logger.error(err)
             return err
         except Exception as e:
-            err = f"Error: {str(e)}"
+            err = f"Error during Notion search: {str(e)}"
             logger.exception(err)
             return err
 
@@ -55,18 +77,22 @@ class NotionReadPageTool(BaseTool):
             err = "Error: page_id is required."
             logger.warning(err)
             return err
+
+        if not is_cli_available():
+            return f"Notice: '{CLI_NAME}' CLI is not installed. Cannot read Notion page '{page_id}'."
+
         try:
             result = subprocess.run(
-                ["ntn", "pages", "get", page_id],
+                [CLI_NAME, "pages", "get", page_id],
                 capture_output=True, text=True, timeout=30
             )
             if result.returncode == 0:
                 return result.stdout
-            err = f"Error: {result.stderr}"
+            err = f"Error reading Notion page: {result.stderr.strip()}"
             logger.error(err)
             return err
-        except FileNotFoundError:
-            err = "Error: ntn CLI not found."
+        except subprocess.TimeoutExpired:
+            err = "Error: Notion read request timed out."
             logger.error(err)
             return err
         except Exception as e:
@@ -88,18 +114,22 @@ class NotionCreatePageTool(BaseTool):
             err = "Error: parent_id and title are required."
             logger.warning(err)
             return err
+
+        if not is_cli_available():
+            logger.info("ntn CLI not found. Simulating Notion page creation.")
+            return f"[SIMULATED NOTION PAGE] Page '{title}' prepared under parent '{parent_id}'."
+
         try:
-            cmd = ["ntn", "pages", "create", "--parent", parent_id, "--title", title]
-            if content:
-                cmd.extend(["--content", content])
+            cmd = [CLI_NAME, "pages", "create", "--parent", f"page:{parent_id}", "--content", f"# {title}\n\n{content}"]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
-                return result.stdout
-            err = f"Error: {result.stderr}"
+                logger.info("Notion page created successfully.")
+                return result.stdout or f"Page '{title}' created successfully."
+            err = f"Error creating Notion page: {result.stderr.strip()}"
             logger.error(err)
             return err
-        except FileNotFoundError:
-            err = "Error: ntn CLI not found."
+        except subprocess.TimeoutExpired:
+            err = "Error: Notion page create timed out."
             logger.error(err)
             return err
         except Exception as e:
@@ -111,8 +141,8 @@ class NotionCreatePageTool(BaseTool):
 class NotionUpdatePageTool(BaseTool):
     name: str = "notion_update_page"
     description: str = (
-        "Update an existing Notion page. "
-        "Provide: page_id (required), content (required, the new content). "
+        "Update an existing Notion page with new Markdown content. "
+        "Provide: page_id (required), content (required, the new markdown content). "
         "Example: {\"page_id\": \"abc123\", \"content\": \"Updated content here\"}"
     )
 
@@ -121,16 +151,21 @@ class NotionUpdatePageTool(BaseTool):
             err = "Error: page_id and content are required."
             logger.warning(err)
             return err
+
+        if not is_cli_available():
+            return f"[SIMULATED NOTION UPDATE] Content prepared for page '{page_id}'."
+
         try:
-            cmd = ["ntn", "pages", "update", page_id, "--content", content]
+            cmd = [CLI_NAME, "pages", "edit", page_id, "--content", content]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
-                return result.stdout
-            err = f"Error: {result.stderr}"
+                logger.info("Notion page updated successfully.")
+                return result.stdout or f"Page '{page_id}' updated successfully."
+            err = f"Error updating Notion page: {result.stderr.strip()}"
             logger.error(err)
             return err
-        except FileNotFoundError:
-            err = "Error: ntn CLI not found."
+        except subprocess.TimeoutExpired:
+            err = "Error: Notion page update timed out."
             logger.error(err)
             return err
         except Exception as e:

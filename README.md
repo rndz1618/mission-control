@@ -123,11 +123,11 @@ python run_mission.py arah_media
 Anda dapat menyisipkan variabel placeholder di dalam deskripsi task di `mission.yaml` (misal `{topic}`, `{target_audience}`), lalu mengirim nilainya langsung saat menjalankan command:
 
 ```bash
-python run_mission.py arah_media -i topic="Tren AI Coding Agents 2026" -i target_audience="Software Engineer"
+python run_mission.py arah_media -i topic="Tren AI Coding Agents 2026" -i audience="Software Engineer"
 ```
 Atau menggunakan raw JSON:
 ```bash
-python run_mission.py arah_media --inputs-json '{"topic": "AI Coding Agents", "target_audience": "Tech Enthusiasts"}'
+python run_mission.py arah_media --inputs-json '{"topic": "AI Coding Agents", "audience": "Software Engineer"}'
 ```
 
 ### 3. Human-in-the-Loop (Approval Interaktif)

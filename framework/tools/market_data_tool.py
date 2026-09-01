@@ -1,6 +1,7 @@
 """Market Data Tools for CrewAI - wraps rndz-market-data ingest script
 
 Each action is a separate tool for proper function-calling schema.
+Includes graceful fallback if ingest script is not present on host.
 """
 import logging
 import os
@@ -11,6 +12,11 @@ logger = logging.getLogger(__name__)
 
 # Configurable path with environment variable override
 DEFAULT_SCRIPT_PATH = os.getenv("MARKET_DATA_SCRIPT_PATH", os.path.expanduser("~/rndz-market-data/ingest.py"))
+
+
+def is_script_available() -> bool:
+    """Check if market data ingest script exists."""
+    return os.path.exists(DEFAULT_SCRIPT_PATH)
 
 
 class MarketDataTickerTool(BaseTool):
@@ -24,6 +30,14 @@ class MarketDataTickerTool(BaseTool):
     def _run(self, symbol: str) -> str:
         if not symbol:
             return "Error: symbol is required."
+
+        if not is_script_available():
+            logger.info("Market data script not found at %s. Returning notice.", DEFAULT_SCRIPT_PATH)
+            return (
+                f"Notice: Market data script not found at '{DEFAULT_SCRIPT_PATH}'. "
+                f"Live ticker for '{symbol}' is unavailable. Proceeding with general estimation."
+            )
+
         try:
             result = subprocess.run(
                 ["python3", DEFAULT_SCRIPT_PATH, "ticker", "--symbol", symbol],
@@ -32,10 +46,6 @@ class MarketDataTickerTool(BaseTool):
             if result.returncode == 0:
                 return result.stdout
             err = f"Error: {result.stderr}"
-            logger.error(err)
-            return err
-        except FileNotFoundError:
-            err = f"Error: Script not found at {DEFAULT_SCRIPT_PATH}"
             logger.error(err)
             return err
         except Exception as e:
@@ -55,6 +65,10 @@ class MarketDataOHLCVTool(BaseTool):
     def _run(self, symbol: str, timeframe: str = "1h", limit: int = 50) -> str:
         if not symbol:
             return "Error: symbol is required."
+
+        if not is_script_available():
+            return f"Notice: Market data script not available. Cannot fetch OHLCV for '{symbol}'."
+
         try:
             result = subprocess.run(
                 ["python3", DEFAULT_SCRIPT_PATH, "ohlcv", "--symbol", symbol, "--timeframe", timeframe, "--limit", str(limit)],
@@ -63,10 +77,6 @@ class MarketDataOHLCVTool(BaseTool):
             if result.returncode == 0:
                 return result.stdout
             err = f"Error: {result.stderr}"
-            logger.error(err)
-            return err
-        except FileNotFoundError:
-            err = f"Error: Script not found at {DEFAULT_SCRIPT_PATH}"
             logger.error(err)
             return err
         except Exception as e:
@@ -86,6 +96,10 @@ class MarketDataTrendTool(BaseTool):
     def _run(self, symbol: str, timeframe: str = "1h", lookback: int = 50) -> str:
         if not symbol:
             return "Error: symbol is required."
+
+        if not is_script_available():
+            return f"Notice: Market data script not available. Cannot calculate trend indicators for '{symbol}'."
+
         try:
             result = subprocess.run(
                 ["python3", DEFAULT_SCRIPT_PATH, "analyze", "--symbol", symbol, "--timeframe", timeframe, "--lookback", str(lookback)],
@@ -94,10 +108,6 @@ class MarketDataTrendTool(BaseTool):
             if result.returncode == 0:
                 return result.stdout
             err = f"Error: {result.stderr}"
-            logger.error(err)
-            return err
-        except FileNotFoundError:
-            err = f"Error: Script not found at {DEFAULT_SCRIPT_PATH}"
             logger.error(err)
             return err
         except Exception as e:
