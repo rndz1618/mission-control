@@ -2,14 +2,24 @@
 
 Each action is a separate tool so CrewAI's native function calling
 can generate proper JSON arguments.
+If xurl is not installed on the host, gracefully informs the agent
+to proceed with internal reasoning.
 """
 import json
 import logging
 import re
+import shutil
 import subprocess
 from crewai.tools import BaseTool
 
 logger = logging.getLogger(__name__)
+
+CLI_NAME = "xurl"
+
+
+def is_cli_available() -> bool:
+    """Check if xurl CLI binary is available on the system PATH."""
+    return shutil.which(CLI_NAME) is not None
 
 
 class XSearchTool(BaseTool):
@@ -21,29 +31,32 @@ class XSearchTool(BaseTool):
     )
 
     def _run(self, query: str, count: int = 10) -> str:
+        if not is_cli_available():
+            logger.info("xurl CLI not found on system PATH. Informing agent to proceed with internal knowledge.")
+            return (
+                "Notice: 'xurl' CLI is not installed on this system. Live Twitter search is currently unavailable. "
+                "Please proceed using your extensive internal knowledge and analytical capabilities to identify trends."
+            )
+
         try:
             result = subprocess.run(
-                ["xurl", "search", query, "--count", str(count)],
+                [CLI_NAME, "search", query, "--count", str(count)],
                 capture_output=True, text=True, timeout=30
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout
             elif result.stderr.strip():
-                err = f"Search completed but returned error: {result.stderr}"
+                err = f"Search completed but returned notice: {result.stderr.strip()}"
                 logger.warning(err)
                 return err
             else:
-                return "No results found for the query."
-        except FileNotFoundError:
-            err = "Error: xurl CLI not found. Please ensure xurl is installed."
-            logger.error(err)
-            return err
+                return "No matching tweets found for the query."
         except subprocess.TimeoutExpired:
-            err = "Error: Search timed out after 30 seconds."
-            logger.error(err)
+            err = "Notice: Live search request timed out after 30 seconds."
+            logger.warning(err)
             return err
         except Exception as e:
-            err = f"Error: {str(e)}"
+            err = f"Error during search: {str(e)}"
             logger.exception(err)
             return err
 
@@ -61,19 +74,22 @@ class XPostTweetTool(BaseTool):
             err = "Error: text is required to post a tweet."
             logger.warning(err)
             return err
+
+        if not is_cli_available():
+            logger.info("xurl CLI not found on system PATH. Simulating tweet post.")
+            return (
+                f"[SIMULATED POST] 'xurl' CLI is not installed. Tweet prepared successfully:\n\n{text}"
+            )
+
         try:
-            cmd = ["xurl", "post", "--text", text]
+            cmd = [CLI_NAME, "post", "--text", text]
             if reply_to:
                 cmd.extend(["--reply", reply_to])
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
                 logger.info("Tweet posted successfully.")
                 return result.stdout or "Tweet posted successfully."
-            err = f"Error posting tweet: {result.stderr}"
-            logger.error(err)
-            return err
-        except FileNotFoundError:
-            err = "Error: xurl CLI not found."
+            err = f"Error posting tweet: {result.stderr.strip()}"
             logger.error(err)
             return err
         except subprocess.TimeoutExpired:
@@ -106,16 +122,21 @@ class XPostThreadTool(BaseTool):
             logger.warning(err)
             return err
 
+        if not is_cli_available():
+            logger.info("xurl CLI not found on system PATH. Simulating thread post.")
+            formatted = "\n\n---\n".join(f"Tweet {i+1}:\n{t}" for i, t in enumerate(tweet_list))
+            return f"[SIMULATED THREAD] 'xurl' CLI is not installed. Thread prepared ({len(tweet_list)} tweets):\n\n{formatted}"
+
         results = []
         previous_id = None
         for tweet_text in tweet_list:
-            cmd = ["xurl", "post", "--text", tweet_text]
+            cmd = [CLI_NAME, "post", "--text", tweet_text]
             if previous_id:
                 cmd.extend(["--reply", previous_id])
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 if result.returncode != 0:
-                    err = f"Error posting tweet in thread: {result.stderr}"
+                    err = f"Error posting tweet in thread: {result.stderr.strip()}"
                     logger.error(err)
                     return err
                 results.append(result.stdout)
@@ -144,18 +165,18 @@ class XGetTweetTool(BaseTool):
             err = "Error: tweet_id is required."
             logger.warning(err)
             return err
+
+        if not is_cli_available():
+            return f"Notice: 'xurl' CLI is not installed. Cannot retrieve live tweet with ID: {tweet_id}."
+
         try:
             result = subprocess.run(
-                ["xurl", "get", tweet_id],
+                [CLI_NAME, "get", tweet_id],
                 capture_output=True, text=True, timeout=30
             )
             if result.returncode == 0:
                 return result.stdout
-            err = f"Error: {result.stderr}"
-            logger.error(err)
-            return err
-        except FileNotFoundError:
-            err = "Error: xurl CLI not found."
+            err = f"Error: {result.stderr.strip()}"
             logger.error(err)
             return err
         except Exception as e:

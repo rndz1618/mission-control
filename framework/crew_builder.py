@@ -1,10 +1,10 @@
 """
 CrewAI Crew Builder for Mission Control Framework
-Loads mission.yaml and constructs a CrewAI crew.
+Loads mission.yaml and constructs a CrewAI crew with dynamic input support.
 """
 import logging
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import yaml
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import BaseTool
@@ -127,7 +127,6 @@ def create_llm(mission_config: Dict[str, Any]) -> LLM:
         if not api_key:
             api_key = "ollama"  # dummy key for litellm
     elif provider == "openai":
-        # If running on local server with 9router gateway configured in .env
         if not base_url and os.getenv("OPENAI_API_BASE"):
             base_url = os.getenv("OPENAI_API_BASE")
 
@@ -187,6 +186,7 @@ def build_tasks(tasks_config: List[Dict[str, Any]], agents: List[Agent]) -> List
             description=task_cfg["description"],
             expected_output=task_cfg["expected_output"],
             agent=agent,
+            human_input=task_cfg.get("human_input", False),
             context=[],
         )
         tasks.append(task)
@@ -227,8 +227,8 @@ def build_crew(mission_config: Dict[str, Any]) -> Crew:
     )
 
 
-def run_mission(mission_path: str) -> Any:
-    """Load mission and run the crew."""
+def run_mission(mission_path: str, inputs: Optional[Dict[str, Any]] = None) -> Any:
+    """Load mission and run the crew with optional dynamic inputs."""
     mission_config = load_mission(mission_path)
     crew = build_crew(mission_config)
-    return crew.kickoff()
+    return crew.kickoff(inputs=inputs or {})

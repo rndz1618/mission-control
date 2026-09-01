@@ -58,12 +58,13 @@ agents:
 tasks:
   - agent: Media Analyst
     description: >
-      Lakukan analisis tren konten media sosial seputar AI dan teknologi terkini. 
-      Gunakan x_search untuk mencari topik yang sedang dibicarakan. 
+      Lakukan analisis tren konten media sosial seputar topik: "{topic}".
+      Target audiens: "{audience}".
+      Gunakan x_search jika tersedia untuk mencari percakapan terkini.
       Sajikan 3 temuan tren utama beserta rekomendasi sudut pandang konten.
     expected_output: >
-      Laporan berisi 3 temuan tren teratas, analisis kenapa topik ini relevan, 
-      dan sudut pandang (angle) konten yang disarankan.
+      Laporan berisi 3 temuan tren teratas terkait {topic}, analisis relevansi
+      untuk {audience}, dan sudut pandang (angle) konten yang disarankan.
 
   - agent: Content Writer
     description: >
@@ -81,9 +82,11 @@ tasks:
       Periksa 3 draft konten dari Content Writer. Evaluasi kejelasan pesan, 
       tone of voice, dan daya tariknya. Berikan keputusan status untuk setiap draft 
       (DISETUJUI atau REVISI) beserta catatan singkat. Kirim status review ke Discord.
+      Tunggu konfirmasi manusia sebelum lanjut ke rilis.
     expected_output: >
       Hasil review editorial untuk ketiga draft dengan status kelayakan publikasi 
       dan catatan perbaikan jika ada.
+    human_input: true
     context:
       - Content Writer
 

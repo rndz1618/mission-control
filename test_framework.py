@@ -102,6 +102,23 @@ class TestMissionControlFramework(unittest.TestCase):
         self.assertFalse(crew.memory)
         self.assertTrue(crew.cache)
 
+    def test_xurl_graceful_fallback(self):
+        """x_search must not crash when xurl binary is missing."""
+        from framework.tools.x_tool import XSearchTool
+        result = XSearchTool()._run(query="AI agents")
+        self.assertIsInstance(result, str)
+        self.assertTrue(len(result) > 0)
+
+    def test_human_input_flag_wired(self):
+        """human_input: true in YAML must land on the CrewAI Task."""
+        cfg = load_mission(self.arah_media_path)
+        os.environ["OPENAI_API_KEY"] = "test-key"
+        llm = create_llm(cfg)
+        agents = build_agents(cfg["agents"], llm)
+        tasks = build_tasks(cfg["tasks"], agents)
+        editor_task = next(t for t in tasks if t.agent.role == "Content Editor")
+        self.assertTrue(editor_task.human_input)
+
 
 if __name__ == "__main__":
     unittest.main()
