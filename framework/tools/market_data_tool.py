@@ -2,10 +2,15 @@
 
 Each action is a separate tool for proper function-calling schema.
 """
+import logging
+import os
 import subprocess
 from crewai.tools import BaseTool
 
-SCRIPT_PATH = "/root/rndz-market-data/ingest.py"
+logger = logging.getLogger(__name__)
+
+# Configurable path with environment variable override
+DEFAULT_SCRIPT_PATH = os.getenv("MARKET_DATA_SCRIPT_PATH", os.path.expanduser("~/rndz-market-data/ingest.py"))
 
 
 class MarketDataTickerTool(BaseTool):
@@ -21,14 +26,22 @@ class MarketDataTickerTool(BaseTool):
             return "Error: symbol is required."
         try:
             result = subprocess.run(
-                ["python3", SCRIPT_PATH, "ticker", "--symbol", symbol],
+                ["python3", DEFAULT_SCRIPT_PATH, "ticker", "--symbol", symbol],
                 capture_output=True, text=True, timeout=30
             )
-            return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
+            if result.returncode == 0:
+                return result.stdout
+            err = f"Error: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return f"Error: Script not found at {SCRIPT_PATH}"
+            err = f"Error: Script not found at {DEFAULT_SCRIPT_PATH}"
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err
 
 
 class MarketDataOHLCVTool(BaseTool):
@@ -44,14 +57,22 @@ class MarketDataOHLCVTool(BaseTool):
             return "Error: symbol is required."
         try:
             result = subprocess.run(
-                ["python3", SCRIPT_PATH, "ohlcv", "--symbol", symbol, "--timeframe", timeframe, "--limit", str(limit)],
+                ["python3", DEFAULT_SCRIPT_PATH, "ohlcv", "--symbol", symbol, "--timeframe", timeframe, "--limit", str(limit)],
                 capture_output=True, text=True, timeout=60
             )
-            return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
+            if result.returncode == 0:
+                return result.stdout
+            err = f"Error: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return f"Error: Script not found at {SCRIPT_PATH}"
+            err = f"Error: Script not found at {DEFAULT_SCRIPT_PATH}"
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err
 
 
 class MarketDataTrendTool(BaseTool):
@@ -67,11 +88,19 @@ class MarketDataTrendTool(BaseTool):
             return "Error: symbol is required."
         try:
             result = subprocess.run(
-                ["python3", SCRIPT_PATH, "analyze", "--symbol", symbol, "--timeframe", timeframe, "--lookback", str(lookback)],
+                ["python3", DEFAULT_SCRIPT_PATH, "analyze", "--symbol", symbol, "--timeframe", timeframe, "--lookback", str(lookback)],
                 capture_output=True, text=True, timeout=60
             )
-            return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
+            if result.returncode == 0:
+                return result.stdout
+            err = f"Error: {result.stderr}"
+            logger.error(err)
+            return err
         except FileNotFoundError:
-            return f"Error: Script not found at {SCRIPT_PATH}"
+            err = f"Error: Script not found at {DEFAULT_SCRIPT_PATH}"
+            logger.error(err)
+            return err
         except Exception as e:
-            return f"Error: {str(e)}"
+            err = f"Error: {str(e)}"
+            logger.exception(err)
+            return err

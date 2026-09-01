@@ -2,12 +2,15 @@
 CrewAI Crew Builder for Mission Control Framework
 Loads mission.yaml and constructs a CrewAI crew.
 """
-import yaml
+import logging
 import os
 from typing import List, Dict, Any
+import yaml
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import BaseTool
 from crewai.llm import LLM
+
+logger = logging.getLogger(__name__)
 
 # Import individual tool classes
 from framework.tools.notion_tool import (
@@ -52,7 +55,9 @@ TOOL_REGISTRY = {
 
 def load_mission(mission_path: str) -> Dict[str, Any]:
     """Load mission configuration from YAML file."""
-    with open(mission_path, 'r') as f:
+    if not os.path.exists(mission_path):
+        raise FileNotFoundError(f"Mission file not found: {mission_path}")
+    with open(mission_path, 'r', encoding='utf-8') as f:
         return yaml.safe_load(f)
 
 
@@ -106,10 +111,11 @@ def build_agents(agents_config: List[Dict[str, Any]], llm: LLM) -> List[Agent]:
 
 
 def build_tasks(tasks_config: List[Dict[str, Any]], agents: List[Agent]) -> List[Task]:
-    """Build Task objects from configuration."""
+    """Build Task objects from configuration with O(1) context lookup mapping."""
     agent_by_role = {agent.role: agent for agent in agents}
-
     tasks = []
+    task_by_role = {}
+
     for task_cfg in tasks_config:
         agent_role = task_cfg["agent"]
         agent = agent_by_role.get(agent_role)
@@ -123,18 +129,17 @@ def build_tasks(tasks_config: List[Dict[str, Any]], agents: List[Agent]) -> List
             context=[],
         )
         tasks.append(task)
+        task_by_role[agent_role] = task
 
     for i, task_cfg in enumerate(tasks_config):
         if "context" in task_cfg:
             context_roles = task_cfg["context"]
             context_tasks = []
             for role in context_roles:
-                for task in tasks:
-                    if task.agent.role == role:
-                        context_tasks.append(task)
-                        break
-                else:
-                    raise ValueError(f"No task found for agent role '{role}'")
+                dep_task = task_by_role.get(role)
+                if not dep_task:
+                    raise ValueError(f"No task found for agent role '{role}' in context dependencies.")
+                context_tasks.append(dep_task)
             tasks[i].context = context_tasks
 
     return tasks

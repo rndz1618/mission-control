@@ -4,10 +4,11 @@ Unit and Integration Tests for Mission Control Framework
 import os
 import sys
 import unittest
-import yaml
 
-# Add mission control to path
-sys.path.insert(0, "/root/mission-control")
+# Dynamic project root path resolution
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
 
 from framework.crew_builder import (
     load_mission,
@@ -22,8 +23,9 @@ from framework.crew_builder import (
 
 class TestMissionControlFramework(unittest.TestCase):
     def setUp(self):
-        self.arah_media_path = "/root/mission-control/missions/arah_media/mission.yaml"
-        self.template_path = "/root/mission-control/missions/template/mission_template.yaml"
+        self.base_dir = CURRENT_DIR
+        self.arah_media_path = os.path.join(self.base_dir, "missions", "arah_media", "mission.yaml")
+        self.template_path = os.path.join(self.base_dir, "missions", "template", "mission_template.yaml")
 
     def test_load_mission_yaml(self):
         """Test that mission YAML files load correctly."""
@@ -64,6 +66,8 @@ class TestMissionControlFramework(unittest.TestCase):
     def test_build_agents(self):
         """Test agent construction from config."""
         cfg = load_mission(self.arah_media_path)
+        # Set dummy key for offline test
+        os.environ["OPENAI_API_KEY"] = "test-key"
         llm = create_llm(cfg)
         agents = build_agents(cfg["agents"], llm)
         self.assertEqual(len(agents), 4)
@@ -73,27 +77,25 @@ class TestMissionControlFramework(unittest.TestCase):
     def test_build_tasks(self):
         """Test task construction and dependency wiring."""
         cfg = load_mission(self.arah_media_path)
+        os.environ["OPENAI_API_KEY"] = "test-key"
         llm = create_llm(cfg)
         agents = build_agents(cfg["agents"], llm)
         tasks = build_tasks(cfg["tasks"], agents)
         self.assertEqual(len(tasks), 4)
         
         # Verify context dependencies
-        # Task 1 (Media Analyst) has no context
         self.assertEqual(len(tasks[0].context), 0)
-        # Task 2 (Content Writer) depends on Task 1
         self.assertEqual(len(tasks[1].context), 1)
         self.assertEqual(tasks[1].context[0].agent.role, "Media Analyst")
-        # Task 3 (Content Editor) depends on Task 2
         self.assertEqual(len(tasks[2].context), 1)
         self.assertEqual(tasks[2].context[0].agent.role, "Content Writer")
-        # Task 4 (Release Manager) depends on Task 3
         self.assertEqual(len(tasks[3].context), 1)
         self.assertEqual(tasks[3].context[0].agent.role, "Content Editor")
 
     def test_build_crew(self):
         """Test full crew building without execution."""
         cfg = load_mission(self.arah_media_path)
+        os.environ["OPENAI_API_KEY"] = "test-key"
         crew = build_crew(cfg)
         self.assertEqual(len(crew.agents), 4)
         self.assertEqual(len(crew.tasks), 4)
