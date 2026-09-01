@@ -74,38 +74,67 @@ def get_tool(tool_name: str) -> BaseTool:
 def create_llm(mission_config: Dict[str, Any]) -> LLM:
     """
     Create LLM instance from mission configuration.
-    Supports OpenAI-compatible gateways, Ollama, OpenRouter, Anthropic, Gemini, Groq, etc.
+    
+    Resolution hierarchy:
+    1. Provider from mission.yaml (default: 'openai' or inferred from model)
+    2. API Key from: mission.yaml -> PROVIDER_API_KEY env -> OPENAI_API_KEY env
+    3. Base URL from: mission.yaml -> PROVIDER_API_BASE env -> OPENAI_API_BASE env
     """
     llm_config = mission_config.get("llm", {})
 
-    raw_model = llm_config.get("model", "gh/gpt-4o-mini-2024-07-18")
-    provider = llm_config.get("provider", "openai").lower()
-    base_url = llm_config.get("base_url") or os.getenv("OPENAI_API_BASE")
-    api_key = llm_config.get("api_key") or os.getenv("OPENAI_API_KEY")
+    raw_model = llm_config.get("model", "gpt-4o-mini")
+    provider = llm_config.get("provider", "").lower()
+    
+    # Auto-detect provider if not explicitly given
+    if not provider:
+        if raw_model.startswith("ollama/"):
+            provider = "ollama"
+        elif raw_model.startswith("openrouter/"):
+            provider = "openrouter"
+        elif raw_model.startswith("anthropic/"):
+            provider = "anthropic"
+        elif raw_model.startswith("gemini/"):
+            provider = "gemini"
+        elif raw_model.startswith("groq/"):
+            provider = "groq"
+        else:
+            provider = "openai"
 
-    # Format model name with provider prefix if not already present
-    if "/" in raw_model and not any(raw_model.startswith(p + "/") for p in ["ollama", "openai", "anthropic", "gemini", "groq", "openrouter"]):
-        # Models with org prefix like "gh/gpt-4o-mini" under openai gateway
-        model_name = f"{provider}/{raw_model}" if provider else f"openai/{raw_model}"
-    elif "/" not in raw_model:
-        model_name = f"{provider}/{raw_model}" if provider else f"openai/{raw_model}"
+    # Normalize model name with provider prefix for LiteLLM
+    if not raw_model.startswith(f"{provider}/"):
+        model_name = f"{provider}/{raw_model}"
     else:
         model_name = raw_model
 
-    # Set default localhost base_url for openai compatible gateways if not provided
-    if not base_url and (provider == "openai" or model_name.startswith("openai/")):
-        base_url = "http://localhost:20128/v1"
+    # Resolve API Key
+    api_key = (
+        llm_config.get("api_key")
+        or os.getenv(f"{provider.upper()}_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+    )
 
-    # Ollama defaults
-    if provider == "ollama" or model_name.startswith("ollama/"):
+    # Resolve Base URL
+    base_url = (
+        llm_config.get("base_url")
+        or os.getenv(f"{provider.upper()}_API_BASE")
+        or os.getenv("OPENAI_API_BASE")
+    )
+
+    # Provider specific defaults
+    if provider == "ollama":
         if not base_url:
             base_url = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
         if not api_key:
             api_key = "ollama"  # dummy key for litellm
+    elif provider == "openai":
+        # If running on local server with 9router gateway configured in .env
+        if not base_url and os.getenv("OPENAI_API_BASE"):
+            base_url = os.getenv("OPENAI_API_BASE")
 
-    if not api_key and not (provider == "ollama" or model_name.startswith("ollama/")):
+    if not api_key and provider != "ollama":
         raise ValueError(
-            "API key not found. Please set OPENAI_API_KEY env var or provide 'api_key' in mission.yaml"
+            f"API key not found for provider '{provider}'. "
+            f"Please set {provider.upper()}_API_KEY (or OPENAI_API_KEY) in .env file."
         )
 
     llm_kwargs: Dict[str, Any] = {
@@ -118,6 +147,7 @@ def create_llm(mission_config: Dict[str, Any]) -> LLM:
     if api_key:
         llm_kwargs["api_key"] = api_key
 
+    logger.info("Initializing LLM: provider=%s, model=%s, base_url=%s", provider, model_name, base_url or 'default')
     return LLM(**llm_kwargs)
 
 

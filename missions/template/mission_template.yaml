@@ -7,47 +7,44 @@ agents:
     goal: >
       [Tujuan spesifik yang ingin dicapai oleh agen ini]
     backstory: >
-      [Latar belakang keahlian dan kepribadian agen]
+      [Latar belakang keahlian agen untuk membentuk persona dan gaya analisis]
     tools:
-      # Pilih dari tool yang tersedia:
-      # - notion_search, notion_read_page, notion_create_page, notion_update_page
-      # - x_search, x_post_tweet, x_post_thread, x_get_tweet
-      # - market_data_ticker, market_data_ohlcv, market_data_trend
-      # - discord_tool
-      - x_search
+      - discord_tool
     verbose: true
     max_iter: 5
 
   - role: "[Nama Role Agen 2]"
     goal: >
-      [Tujuan spesifik agen 2]
+      [Tujuan spesifik agen kedua]
     backstory: >
-      [Keahlian agen 2]
+      [Latar belakang keahlian agen kedua]
     tools: []
     verbose: true
     max_iter: 5
 
 tasks:
-  - description: >
-      [Instruksi detail tentang apa yang harus dikerjakan]
+  - agent: "[Nama Role Agen 1]"
+    description: >
+      [Deskripsi tugas detail yang harus dikerjakan oleh Agen 1]
     expected_output: >
       [Bentuk output yang diharapkan dari task ini]
-    agent: "[Nama Role Agen 1]"
 
-  - description: >
-      [Instruksi task kedua yang memanfaatkan output task pertama]
+  - agent: "[Nama Role Agen 2]"
+    description: >
+      [Deskripsi tugas Agen 2 yang memproses hasil dari Agen 1]
     expected_output: >
-      [Bentuk output yang diharapkan]
-    agent: "[Nama Role Agen 2]"
+      [Bentuk output akhir yang diharapkan]
     context:
       - "[Nama Role Agen 1]"
 
-process: sequential  # atau "hierarchical"
+process: sequential               # Opsi: sequential atau hierarchical
 verbose: true
 memory: false
 cache: true
+
+# Konfigurasi LLM untuk misi ini
 llm:
-  model: "gh/gpt-4o-mini-2024-07-18"
-  base_url: "http://localhost:20128/v1"
+  provider: openai                # Opsi: openai, ollama, openrouter, groq, anthropic, gemini
+  model: "gpt-4o-mini"            # Nama model yang ingin digunakan
   temperature: 0.7
   max_tokens: 4096

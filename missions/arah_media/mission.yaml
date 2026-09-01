@@ -48,58 +48,51 @@ agents:
       Menyusun laporan akhir dan rencana publikasi berdasarkan hasil review 
       editorial.
     backstory: >
-      Koordinator rilis konten yang memastikan setiap konten terjadwal 
-      dengan baik dan hasilnya terdokumentasi secara rapi.
+      Manajer rilis yang bertugas memastikan semua materi konten yang disetujui 
+      tercatat rapi dan mendistribusikan laporan final ke tim.
     tools:
       - discord_tool
     verbose: true
     max_iter: 5
 
 tasks:
-  - description: >
+  - agent: Media Analyst
+    description: >
       Lakukan analisis tren konten media sosial seputar AI dan teknologi terkini. 
       Gunakan x_search untuk mencari topik yang sedang dibicarakan. 
       Sajikan 3 temuan tren utama beserta rekomendasi sudut pandang konten.
     expected_output: >
-      Ringkasan 3 tren utama dalam format:
-      1. Nama Tren: deskripsi singkat dan relevansi
-      2. Sudut Pandang Konten yang Disarankan: angle yang menarik untuk audiens
-    agent: Media Analyst
+      Laporan berisi 3 temuan tren teratas, analisis kenapa topik ini relevan, 
+      dan sudut pandang (angle) konten yang disarankan.
 
-  - description: >
-      Berdasarkan 3 tren dari Media Analyst, buat 3 draft konten media sosial 
-      (maksimal 280 karakter per konten). Setiap draft harus memiliki hook yang kuat, 
-      pesan utama, hashtag relevan, dan call-to-action.
+  - agent: Content Writer
+    description: >
+      Berdasarkan laporan analisis tren dari Media Analyst, buatlah 3 variasi 
+      draft konten media sosial lengkap dengan hook yang menarik, isi poin utama, 
+      dan call-to-action (CTA).
     expected_output: >
-      3 draft konten siap publish dengan format:
-      [Draft 1] - [Topik] - [Teks Konten] - [Hashtag]
-      [Draft 2] - [Topik] - [Teks Konten] - [Hashtag]
-      [Draft 3] - [Topik] - [Teks Konten] - [Hashtag]
-    agent: Content Writer
+      3 draft konten media sosial siap review, masing-masing memiliki hook, body, 
+      dan CTA yang jelas.
     context:
       - Media Analyst
 
-  - description: >
-      Evaluasi ke-3 draft konten dari Content Writer. Periksa kejelasan pesan, 
-      panjang karakter, dan dampak audiens. Berikan status keputusan untuk 
-      setiap draft: "DISETUJUI" beserta alasan singkat, atau "REVISI" beserta 
-      catatan perbaikan.
+  - agent: Content Editor
+    description: >
+      Periksa 3 draft konten dari Content Writer. Evaluasi kejelasan pesan, 
+      tone of voice, dan daya tariknya. Berikan keputusan status untuk setiap draft 
+      (DISETUJUI atau REVISI) beserta catatan singkat. Kirim status review ke Discord.
     expected_output: >
-      Laporan editorial review untuk ke-3 draft dengan status jelas (DISETUJUI/REVISI) 
+      Hasil review editorial untuk ketiga draft dengan status kelayakan publikasi 
       dan catatan perbaikan jika ada.
-    agent: Content Editor
     context:
       - Content Writer
 
-  - description: >
-      Buat laporan publikasi final yang merangkum: 
-      1. Status persetujuan semua konten dari Content Editor
-      2. Konten final yang siap rilis
-      3. Rekomendasi jadwal posting
-      Kirimkan ringkasan hasil melalui discord_tool jika ada webhook yang aktif.
+  - agent: Release Manager
+    description: >
+      Kumpulkan draft yang telah DISETUJUI oleh Content Editor. Buat rekapitulasi 
+      laporan akhir strategi konten dan kirimkan ringkasan rilis ke Discord via discord_tool.
     expected_output: >
-      Laporan publikasi final lengkap dan terstruktur, siap dipakai tim operasional.
-    agent: Release Manager
+      Laporan final strategi rilis konten dan konfirmasi pengiriman notifikasi ke Discord.
     context:
       - Content Editor
 
@@ -107,8 +100,10 @@ process: sequential
 verbose: true
 memory: false
 cache: true
+
+# Konfigurasi Model LLM untuk misi ini
 llm:
-  model: "gh/gpt-4o-mini-2024-07-18"
-  base_url: "http://localhost:20128/v1"
+  provider: openai                # Opsi: openai, ollama, openrouter, groq, anthropic, gemini
+  model: "gpt-4o-mini"            # Nama model
   temperature: 0.7
   max_tokens: 4096
