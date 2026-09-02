@@ -18,6 +18,7 @@ Framework multi-agen modular berbasis **CrewAI** untuk mengeksekusi misi otonom 
   - [Eksekusi Standar](#1-eksekusi-standar)
   - [Eksekusi dengan Variabel Input Dinamis (`--input`)](#2-eksekusi-dengan-variabel-input-dinamis---input)
   - [Human-in-the-Loop (`human_input: true`)](#3-human-in-the-loop-approval-interaktif)
+  - [Discord Interactive Bridge (Main UI)](#4-discord-interactive-bridge-main-ui)
 - [Membuat Misi Baru](#-membuat-misi-baru)
 - [Daftar Tools untuk Agen](#-daftar-tools-untuk-agen)
 - [Troubleshooting & Solusi Error](#-troubleshooting--solusi-error)
@@ -130,17 +131,20 @@ Atau menggunakan raw JSON:
 python run_mission.py arah_media --inputs-json '{"topic": "AI Coding Agents", "audience": "Software Engineer"}'
 ```
 
-### 3. Human-in-the-Loop (Approval Interaktif)
-Jika Anda ingin suatu task berhenti dan meminta review / revisi dari Anda sebelum dilanjutkan ke task berikutnya, tambahkan `human_input: true` pada task terkait di `mission.yaml`:
+### 4. Discord Interactive Bridge (Main UI)
+Anda dapat memicu misi langsung dari chat Discord ke asisten (KAI/Hermes) tanpa membuka terminal:
 
-```yaml
-tasks:
-  - agent: Content Editor
-    description: >
-      Review draft konten dan minta persetujuan human sebelum diteruskan ke rilis.
-    expected_output: >
-      Draft final yang telah disetujui.
-    human_input: true    # 👈 Terminal akan pause dan meminta respon teks Anda!
+```
+[ Chat Discord ] ➔ "Grok, jalankan misi arah_media topik: AI Agents"
+        │
+        ▼
+[ KAI / Hermes ] ➔ Menjalankan runner background (run_bridge.py)
+        │
+        ▼
+[ Pesan Proposal ] ➔ Dikirim ke channel Discord untuk persetujuan
+        │
+        ▼
+[ Respon Anda ] ➔ Balas "approve <id>" atau "revisi <catatan>"
 ```
 
 ---
