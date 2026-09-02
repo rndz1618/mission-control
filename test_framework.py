@@ -177,6 +177,8 @@ class TestMissionControlFramework(unittest.TestCase):
                     drafts="Draft 1: hello",
                     context_meta={"topic": "AI", "audience": "Devs"},
                 )
+                self.assertTrue(sid.startswith("arah_media_"))
+                self.assertEqual(len(sid.split("_")[-1]), 8)
                 pending = discord_bridge.get_latest_pending_approval()
                 self.assertIsNotNone(pending)
                 self.assertEqual(pending["id"], sid)
@@ -185,6 +187,61 @@ class TestMissionControlFramework(unittest.TestCase):
                 self.assertTrue(ok)
                 leftover = discord_bridge.get_latest_pending_approval()
                 self.assertIsNone(leftover)
+
+    def test_discord_bridge_concurrent_writes(self):
+        """fcntl lock must keep concurrent writers from dropping records."""
+        import tempfile
+        import threading
+        from pathlib import Path
+        import discord_bridge
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_file = str(Path(tmp) / "pending_approvals.json")
+            with patch.object(discord_bridge, "APPROVAL_FILE", tmp_file), \
+                 patch.object(discord_bridge, "STATE_DIR", tmp):
+                ids = []
+
+                def worker(i):
+                    sid = discord_bridge.save_pending_approval(
+                        f"mission{i}", drafts=f"d{i}", context_meta={}
+                    )
+                    ids.append(sid)
+
+                threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+                data = discord_bridge._locked_read()
+                self.assertEqual(len(data), 8)
+                self.assertEqual(len(set(ids)), 8)
+
+    def test_smart_truncate_preserves_newline(self):
+        """Discord formatter must not slice mid-line when possible."""
+        import discord_bridge
+        blob = "\n".join([f"line {i} " + ("x" * 80) for i in range(40)])
+        out = discord_bridge._smart_truncate(blob, 1400)
+        self.assertIn("truncated", out)
+        self.assertLessEqual(len(out), 1500)
+        self.assertFalse(out.startswith("..."))
+
+    def test_run_bridge_records_failure(self):
+        """Failed missions must land in the queue as FAILED, not raise raw."""
+        import tempfile
+        from pathlib import Path
+        import discord_bridge
+        import run_bridge
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_file = str(Path(tmp) / "pending_approvals.json")
+            with patch.object(discord_bridge, "APPROVAL_FILE", tmp_file), \
+                 patch.object(discord_bridge, "STATE_DIR", tmp), \
+                 patch.object(run_bridge, "run_mission", side_effect=RuntimeError("boom")):
+                res = run_bridge.execute_and_queue("arah_media", {"topic": "x"})
+                self.assertEqual(res["status"], "FAILED")
+                item = discord_bridge.get_approval(res["session_id"])
+                self.assertEqual(item["status"], "FAILED")
+                self.assertIn("boom", res["discord_message"])
 
 
 if __name__ == "__main__":
