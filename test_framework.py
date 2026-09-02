@@ -4,6 +4,7 @@ Unit and Integration Tests for Mission Control Framework
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 # Dynamic project root path resolution
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -66,7 +67,6 @@ class TestMissionControlFramework(unittest.TestCase):
     def test_build_agents(self):
         """Test agent construction from config."""
         cfg = load_mission(self.arah_media_path)
-        # Set dummy key for offline test
         os.environ["OPENAI_API_KEY"] = "test-key"
         llm = create_llm(cfg)
         agents = build_agents(cfg["agents"], llm)
@@ -105,9 +105,42 @@ class TestMissionControlFramework(unittest.TestCase):
     def test_xurl_graceful_fallback(self):
         """x_search must not crash when xurl binary is missing."""
         from framework.tools.x_tool import XSearchTool
-        result = XSearchTool()._run(query="AI agents")
-        self.assertIsInstance(result, str)
-        self.assertTrue(len(result) > 0)
+        with patch("framework.tools.x_tool.is_cli_available", return_value=False):
+            result = XSearchTool()._run(query="AI agents")
+            self.assertIn("Notice:", result)
+            self.assertIn("unavailable", result)
+
+    def test_notion_tools_fallback(self):
+        """Notion tools must return structured notice when ntn is missing."""
+        from framework.tools.notion_tool import NotionSearchTool, NotionReadPageTool, NotionCreatePageTool, NotionUpdatePageTool
+        with patch("framework.tools.notion_tool.is_cli_available", return_value=False):
+            res_search = NotionSearchTool()._run(query="ai trend")
+            self.assertIn("Notice:", res_search)
+            self.assertIn("Please proceed using your internal knowledge", res_search)
+
+            res_read = NotionReadPageTool()._run(page_id="test-page-123")
+            self.assertIn("Notice:", res_read)
+
+            res_create = NotionCreatePageTool()._run(parent_id="p1", title="Test Title")
+            self.assertIn("Notice:", res_create)
+
+            res_update = NotionUpdatePageTool()._run(page_id="p1", content="New Content")
+            self.assertIn("Notice:", res_update)
+
+    def test_market_data_tools_fallback(self):
+        """Market data tools must return structured notice when script is missing."""
+        from framework.tools.market_data_tool import MarketDataTickerTool, MarketDataOHLCVTool, MarketDataTrendTool
+        with patch("framework.tools.market_data_tool.is_script_available", return_value=False):
+            res_ticker = MarketDataTickerTool()._run(symbol="BTC/USDT")
+            self.assertIn("Notice:", res_ticker)
+            self.assertIn("Please proceed with internal estimation", res_ticker)
+
+            res_ohlcv = MarketDataOHLCVTool()._run(symbol="BTC/USDT")
+            self.assertIn("Notice:", res_ohlcv)
+
+            res_trend = MarketDataTrendTool()._run(symbol="BTC/USDT")
+            self.assertIn("Notice:", res_trend)
+            self.assertIn("Please proceed with internal technical analysis", res_trend)
 
     def test_human_input_flag_wired(self):
         """human_input: true in YAML must land on the CrewAI Task."""

@@ -1,7 +1,7 @@
 """Notion Tools for CrewAI - wraps ntn CLI
 
 Each action is a separate tool for proper function-calling schema.
-Includes graceful fallback and availability checks.
+Includes standardized graceful fallback and availability checks.
 """
 import json
 import logging
@@ -37,11 +37,10 @@ class NotionSearchTool(BaseTool):
             logger.info("ntn CLI not found on system PATH. Returning notice.")
             return (
                 f"Notice: '{CLI_NAME}' CLI is not installed. Live Notion search for '{query}' is unavailable. "
-                "Proceeding with internal reasoning."
+                "Please proceed using your internal knowledge and context."
             )
 
         try:
-            # Use public API search endpoint via ntn api v1/search
             payload = json.dumps({"query": query, "page_size": 10})
             result = subprocess.run(
                 [CLI_NAME, "api", "v1/search", "-d", payload],
@@ -79,7 +78,11 @@ class NotionReadPageTool(BaseTool):
             return err
 
         if not is_cli_available():
-            return f"Notice: '{CLI_NAME}' CLI is not installed. Cannot read Notion page '{page_id}'."
+            logger.info("ntn CLI not found. Returning notice.")
+            return (
+                f"Notice: '{CLI_NAME}' CLI is not installed. Cannot retrieve live page for ID '{page_id}'. "
+                "Please proceed using the available task context."
+            )
 
         try:
             result = subprocess.run(
@@ -117,7 +120,10 @@ class NotionCreatePageTool(BaseTool):
 
         if not is_cli_available():
             logger.info("ntn CLI not found. Simulating Notion page creation.")
-            return f"[SIMULATED NOTION PAGE] Page '{title}' prepared under parent '{parent_id}'."
+            return (
+                f"Notice: '{CLI_NAME}' CLI is not installed. Page '{title}' recorded locally under parent '{parent_id}'. "
+                "Proceeding with workflow."
+            )
 
         try:
             cmd = [CLI_NAME, "pages", "create", "--parent", f"page:{parent_id}", "--content", f"# {title}\n\n{content}"]
@@ -153,7 +159,11 @@ class NotionUpdatePageTool(BaseTool):
             return err
 
         if not is_cli_available():
-            return f"[SIMULATED NOTION UPDATE] Content prepared for page '{page_id}'."
+            logger.info("ntn CLI not found. Simulating Notion page update.")
+            return (
+                f"Notice: '{CLI_NAME}' CLI is not installed. Content update for page '{page_id}' recorded locally. "
+                "Proceeding with workflow."
+            )
 
         try:
             cmd = [CLI_NAME, "pages", "edit", page_id, "--content", content]

@@ -120,7 +120,7 @@ python run_mission.py arah_media
 ```
 
 ### 2. Eksekusi dengan Variabel Input Dinamis (`--input`)
-Anda dapat menyisipkan variabel placeholder di dalam deskripsi task di `mission.yaml` (misal `{topic}`, `{target_audience}`), lalu mengirim nilainya langsung saat menjalankan command:
+Anda dapat menyisipkan variabel placeholder di dalam deskripsi task di `mission.yaml` (misal `{topic}`, `{audience}`), lalu mengirim nilainya langsung saat menjalankan command:
 
 ```bash
 python run_mission.py arah_media -i topic="Tren AI Coding Agents 2026" -i audience="Software Engineer"

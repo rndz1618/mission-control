@@ -1,7 +1,7 @@
 """Market Data Tools for CrewAI - wraps rndz-market-data ingest script
 
 Each action is a separate tool for proper function-calling schema.
-Includes graceful fallback if ingest script is not present on host.
+Includes standardized graceful fallback if ingest script is not present on host.
 """
 import logging
 import os
@@ -35,7 +35,7 @@ class MarketDataTickerTool(BaseTool):
             logger.info("Market data script not found at %s. Returning notice.", DEFAULT_SCRIPT_PATH)
             return (
                 f"Notice: Market data script not found at '{DEFAULT_SCRIPT_PATH}'. "
-                f"Live ticker for '{symbol}' is unavailable. Proceeding with general estimation."
+                f"Live ticker for '{symbol}' is unavailable. Please proceed with internal estimation."
             )
 
         try:
@@ -67,7 +67,11 @@ class MarketDataOHLCVTool(BaseTool):
             return "Error: symbol is required."
 
         if not is_script_available():
-            return f"Notice: Market data script not available. Cannot fetch OHLCV for '{symbol}'."
+            logger.info("Market data script not found at %s. Returning notice.", DEFAULT_SCRIPT_PATH)
+            return (
+                f"Notice: Market data script not found at '{DEFAULT_SCRIPT_PATH}'. "
+                f"Cannot fetch OHLCV for '{symbol}'. Please proceed with internal historical analysis."
+            )
 
         try:
             result = subprocess.run(
@@ -98,7 +102,11 @@ class MarketDataTrendTool(BaseTool):
             return "Error: symbol is required."
 
         if not is_script_available():
-            return f"Notice: Market data script not available. Cannot calculate trend indicators for '{symbol}'."
+            logger.info("Market data script not found at %s. Returning notice.", DEFAULT_SCRIPT_PATH)
+            return (
+                f"Notice: Market data script not found at '{DEFAULT_SCRIPT_PATH}'. "
+                f"Cannot calculate live trend indicators for '{symbol}'. Please proceed with internal technical analysis."
+            )
 
         try:
             result = subprocess.run(
