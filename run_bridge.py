@@ -28,7 +28,9 @@ def execute_and_queue(mission_name: str, inputs: dict) -> dict:
         raise FileNotFoundError(f"Mission config not found: {mission_path}")
 
     logging.info("Starting mission '%s' with inputs: %s", mission_name, inputs)
-    result = run_mission(mission_path, inputs=inputs)
+    # Discord/headless: never pause for CrewAI stdin human_input
+    os.environ["MISSION_CONTROL_SKIP_HUMAN_INPUT"] = "1"
+    result = run_mission(mission_path, inputs=inputs, skip_human_input=True)
     raw_text = str(result)
 
     session_id = discord_bridge.save_pending_approval(

@@ -148,9 +148,43 @@ class TestMissionControlFramework(unittest.TestCase):
         os.environ["OPENAI_API_KEY"] = "test-key"
         llm = create_llm(cfg)
         agents = build_agents(cfg["agents"], llm)
-        tasks = build_tasks(cfg["tasks"], agents)
+        tasks = build_tasks(cfg["tasks"], agents, skip_human_input=False)
         editor_task = next(t for t in tasks if t.agent.role == "Content Editor")
         self.assertTrue(editor_task.human_input)
+
+    def test_skip_human_input_for_headless(self):
+        """Discord/cron runs must disable CrewAI stdin human_input."""
+        cfg = load_mission(self.arah_media_path)
+        os.environ["OPENAI_API_KEY"] = "test-key"
+        llm = create_llm(cfg)
+        agents = build_agents(cfg["agents"], llm)
+        tasks = build_tasks(cfg["tasks"], agents, skip_human_input=True)
+        editor_task = next(t for t in tasks if t.agent.role == "Content Editor")
+        self.assertFalse(editor_task.human_input)
+
+    def test_discord_bridge_queue(self):
+        """Pending approval queue must persist and update status."""
+        import tempfile
+        from pathlib import Path
+        import discord_bridge
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_file = str(Path(tmp) / "pending_approvals.json")
+            with patch.object(discord_bridge, "APPROVAL_FILE", tmp_file), \
+                 patch.object(discord_bridge, "STATE_DIR", tmp):
+                sid = discord_bridge.save_pending_approval(
+                    "arah_media",
+                    drafts="Draft 1: hello",
+                    context_meta={"topic": "AI", "audience": "Devs"},
+                )
+                pending = discord_bridge.get_latest_pending_approval()
+                self.assertIsNotNone(pending)
+                self.assertEqual(pending["id"], sid)
+                self.assertEqual(pending["status"], "PENDING_APPROVAL")
+                ok = discord_bridge.update_approval_status(sid, "APPROVED", notes="ok")
+                self.assertTrue(ok)
+                leftover = discord_bridge.get_latest_pending_approval()
+                self.assertIsNone(leftover)
 
 
 if __name__ == "__main__":

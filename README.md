@@ -131,6 +131,21 @@ Atau menggunakan raw JSON:
 python run_mission.py arah_media --inputs-json '{"topic": "AI Coding Agents", "audience": "Software Engineer"}'
 ```
 
+### 3. Human-in-the-Loop (Approval Interaktif di Terminal)
+Jika suatu task perlu pause di **TTY interaktif**, set `human_input: true` di `mission.yaml`. CrewAI akan menunggu input stdin sebelum task berikutnya.
+
+Mode Discord / cron **tidak** memakai gate ini (hang). Runner `run_bridge.py` otomatis set `MISSION_CONTROL_SKIP_HUMAN_INPUT=1` dan approval pindah ke chat.
+
+```yaml
+tasks:
+  - agent: Content Editor
+    description: >
+      Review draft konten dan minta persetujuan human sebelum diteruskan ke rilis.
+    expected_output: >
+      Draft final yang telah disetujui.
+    human_input: true    # 👈 Hanya aktif di terminal interaktif
+```
+
 ### 4. Discord Interactive Bridge (Main UI)
 Anda dapat memicu misi langsung dari chat Discord ke asisten (KAI/Hermes) tanpa membuka terminal:
 

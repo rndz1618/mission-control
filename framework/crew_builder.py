@@ -170,8 +170,20 @@ def build_agents(agents_config: List[Dict[str, Any]], llm: LLM) -> List[Agent]:
     return agents
 
 
-def build_tasks(tasks_config: List[Dict[str, Any]], agents: List[Agent]) -> List[Task]:
+def _should_skip_human_input(explicit: Optional[bool] = None) -> bool:
+    """CLI human_input hangs headless Discord/cron runs — skip unless running interactively."""
+    if explicit is not None:
+        return explicit
+    return os.getenv("MISSION_CONTROL_SKIP_HUMAN_INPUT", "").strip().lower() in ("1", "true", "yes")
+
+
+def build_tasks(
+    tasks_config: List[Dict[str, Any]],
+    agents: List[Agent],
+    skip_human_input: Optional[bool] = None,
+) -> List[Task]:
     """Build Task objects from configuration with O(1) context lookup mapping."""
+    skip = _should_skip_human_input(skip_human_input)
     agent_by_role = {agent.role: agent for agent in agents}
     tasks = []
     task_by_role = {}
@@ -182,11 +194,12 @@ def build_tasks(tasks_config: List[Dict[str, Any]], agents: List[Agent]) -> List
         if not agent:
             raise ValueError(f"Agent with role '{agent_role}' not found.")
 
+        human_input = False if skip else bool(task_cfg.get("human_input", False))
         task = Task(
             description=task_cfg["description"],
             expected_output=task_cfg["expected_output"],
             agent=agent,
-            human_input=task_cfg.get("human_input", False),
+            human_input=human_input,
             context=[],
         )
         tasks.append(task)
@@ -206,11 +219,11 @@ def build_tasks(tasks_config: List[Dict[str, Any]], agents: List[Agent]) -> List
     return tasks
 
 
-def build_crew(mission_config: Dict[str, Any]) -> Crew:
+def build_crew(mission_config: Dict[str, Any], skip_human_input: Optional[bool] = None) -> Crew:
     """Build CrewAI crew from mission configuration."""
     llm = create_llm(mission_config)
     agents = build_agents(mission_config["agents"], llm)
-    tasks = build_tasks(mission_config["tasks"], agents)
+    tasks = build_tasks(mission_config["tasks"], agents, skip_human_input=skip_human_input)
 
     process_str = mission_config.get("process", "sequential").lower()
     process = Process.hierarchical if process_str == "hierarchical" else Process.sequential
@@ -227,8 +240,12 @@ def build_crew(mission_config: Dict[str, Any]) -> Crew:
     )
 
 
-def run_mission(mission_path: str, inputs: Optional[Dict[str, Any]] = None) -> Any:
+def run_mission(
+    mission_path: str,
+    inputs: Optional[Dict[str, Any]] = None,
+    skip_human_input: Optional[bool] = None,
+) -> Any:
     """Load mission and run the crew with optional dynamic inputs."""
     mission_config = load_mission(mission_path)
-    crew = build_crew(mission_config)
+    crew = build_crew(mission_config, skip_human_input=skip_human_input)
     return crew.kickoff(inputs=inputs or {})

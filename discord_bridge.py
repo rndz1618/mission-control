@@ -53,6 +53,17 @@ def save_pending_approval(mission_name: str, drafts: Any, context_meta: dict) ->
     return session_id
 
 
+def get_approval(session_id: str) -> Optional[Dict[str, Any]]:
+    """Load one approval session by ID."""
+    ensure_state_dir()
+    with open(APPROVAL_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    item = data.get(session_id)
+    if not item:
+        return None
+    return {"id": session_id, **item}
+
+
 def get_latest_pending_approval() -> Optional[Dict[str, Any]]:
     """Retrieve the most recent pending approval session."""
     ensure_state_dir()
@@ -65,7 +76,6 @@ def get_latest_pending_approval() -> Optional[Dict[str, Any]]:
     ]
     if not pending:
         return None
-    # Sort descending by creation date
     pending.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return pending[0]
 
